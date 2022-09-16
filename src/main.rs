@@ -13,11 +13,14 @@ const MERGELIST_PATH: &str = "mergelist.txt";
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
 struct Args {
+    /// Set title of merged MP3 file
+    #[clap(short, long)]
+    title: Option<String>,
     /// Path to cover art
     #[clap(short, long)]
     cover: Option<String>,
     /// Output file path
-    output: String,
+    output: PathBuf,
     /// Input file paths
     files: Vec<String>,
 }
@@ -151,7 +154,7 @@ fn add_cover(args: &Args, metadata: &mut Tag) -> anyhow::Result<()> {
 // - Merge chosen files into a single MP3
 // - Write chapter info + optional cover image to merged MP3
 fn main() -> anyhow::Result<()> {
-    let args: Args = dbg!(Args::parse());
+    let mut args: Args = dbg!(Args::parse());
     anyhow::ensure!(!args.files.is_empty(), "no input files specified");
 
     let chapters = get_chapters(&args).context("failed to generate chapter metadata")?;
@@ -160,6 +163,10 @@ fn main() -> anyhow::Result<()> {
 
     let mut metadata = Tag::read_from_path(merged_file.path())
         .context("failed to read ID3 tag from merged file")?;
+
+    if let Some(title) = &args.title {
+        metadata.set_title(title);
+    }
 
     for chapter in chapters {
         metadata.add_frame(chapter);
@@ -171,10 +178,11 @@ fn main() -> anyhow::Result<()> {
         .write_to_path(merged_file.path(), Version::Id3v24)
         .context("failed to write ID3 tag to merged file")?;
 
+    args.output.set_extension("mp3");
     fs::copy(merged_file.path(), &args.output).with_context(|| {
         format!(
             "failed to copy merged file to output path '{}'",
-            args.output
+            args.output.to_string_lossy()
         )
     })?;
 
