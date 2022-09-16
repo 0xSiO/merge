@@ -8,6 +8,9 @@ use id3::{
 };
 use tempfile::NamedTempFile;
 
+// We can't use a temporary path for the mergelist, unfortunately. ffmpeg considers relative paths
+// in the mergelist to be relative to the location of the mergelist, rather than the current
+// working directory.
 const MERGELIST_PATH: &str = "mergelist.txt";
 
 #[derive(Parser, Debug)]
