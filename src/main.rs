@@ -75,7 +75,7 @@ fn get_chapters(args: &Args) -> anyhow::Result<Vec<Chapter>> {
         chapters.push(chapter);
     }
 
-    Ok(dbg!(chapters))
+    Ok(chapters)
 }
 
 fn create_mergelist(args: &Args) -> io::Result<()> {
@@ -91,8 +91,6 @@ fn create_mergelist(args: &Args) -> io::Result<()> {
             }
         })
         .collect();
-
-    println!("{}", lines.join("\n"));
 
     fs::write(MERGELIST_PATH, lines.join("\n"))
 }
@@ -116,6 +114,7 @@ fn merge_files() -> io::Result<NamedTempFile> {
         "-y",
         merged_file.path()
     )
+    .stderr_capture()
     // .stderr_to_stdout()
     .run()?;
 
@@ -149,7 +148,7 @@ fn add_cover(args: &Args, metadata: &mut Tag) -> anyhow::Result<()> {
 // - Merge chosen files into a single MP3
 // - Write chapter info + optional cover image to merged MP3
 fn main() -> anyhow::Result<()> {
-    let mut args: Args = dbg!(Args::parse());
+    let mut args: Args = Args::parse();
     anyhow::ensure!(!args.files.is_empty(), "no input files specified");
 
     let chapters = get_chapters(&args).context("failed to generate chapter metadata")?;
