@@ -15,9 +15,9 @@ const MERGELIST_PATH: &str = "mergelist.txt";
 struct Args {
     /// Path to cover art
     #[clap(short, long)]
-    cover: Option<PathBuf>,
+    cover: Option<String>,
     /// Output file path
-    output: PathBuf,
+    output: String,
     /// Input file paths
     files: Vec<String>,
 }
@@ -43,14 +43,14 @@ fn get_chapters(args: &Args) -> anyhow::Result<Vec<Chapter>> {
             "csv=p=0"
         )
         .read()
-        .with_context(|| format!("unable to get duration of input file '{path}'"))?
+        .with_context(|| format!("failed to get duration of input file '{path}'"))?
         .parse()
-        .with_context(|| format!("unable to parse duration of input file '{path}'"))?;
+        .with_context(|| format!("failed to parse duration of input file '{path}'"))?;
 
         let duration_ms = (duration_secs * 1000.0).round() as u32;
 
         let file_size = fs::metadata(path)
-            .with_context(|| format!("unable to get size of input file '{path}'"))?
+            .with_context(|| format!("failed to get size of input file '{path}'"))?
             .len() as u32;
 
         let mut chapter = Chapter {
@@ -66,7 +66,7 @@ fn get_chapters(args: &Args) -> anyhow::Result<Vec<Chapter>> {
             PathBuf::from(path)
                 .file_stem()
                 .with_context(|| {
-                    format!("unable to determine chapter title for input file '{path}'")
+                    format!("failed to determine chapter title for input file '{path}'")
                 })?
                 .to_string_lossy(),
         );
@@ -126,31 +126,22 @@ fn merge_files() -> io::Result<NamedTempFile> {
     Ok(merged_file)
 }
 
-fn add_chapters(metadata: &mut Tag, chapters: Vec<Chapter>) -> anyhow::Result<()> {
-    for chapter in chapters {
-        metadata.add_frame(chapter);
+fn add_cover(args: &Args, metadata: &mut Tag) -> anyhow::Result<()> {
+    if let Some(path) = &args.cover {
+        let mime_type = mime_guess::from_path(path).first().with_context(|| {
+            format!("failed to determine a mime type for cover file '{}'", path)
+        })?;
+
+        let image_data =
+            fs::read(path).with_context(|| format!("failed to read cover file '{}'", path))?;
+
+        metadata.add_frame(Picture {
+            mime_type: mime_type.to_string(),
+            picture_type: PictureType::CoverFront,
+            description: String::new(),
+            data: image_data,
+        });
     }
-
-    Ok(())
-}
-
-fn add_cover(metadata: &mut Tag, path: &PathBuf) -> anyhow::Result<()> {
-    let mime_type = mime_guess::from_path(path).first().with_context(|| {
-        format!(
-            "unable to determine a mime type for cover file '{}'",
-            path.to_string_lossy()
-        )
-    })?;
-
-    let image_data = fs::read(path)
-        .with_context(|| format!("unable to read cover file '{}'", path.to_string_lossy()))?;
-
-    metadata.add_frame(Picture {
-        mime_type: mime_type.to_string(),
-        picture_type: PictureType::CoverFront,
-        description: String::new(),
-        data: image_data,
-    });
 
     Ok(())
 }
@@ -163,18 +154,29 @@ fn main() -> anyhow::Result<()> {
     let args: Args = dbg!(Args::parse());
     anyhow::ensure!(!args.files.is_empty(), "no input files specified");
 
-    let chapters = get_chapters(&args)?;
-    create_mergelist(&args)?;
-    let merged_file = merge_files()?;
+    let chapters = get_chapters(&args).context("failed to generate chapter metadata")?;
+    create_mergelist(&args).context("failed to create temporary mergelist")?;
+    let merged_file = merge_files().context("failed to merge input files")?;
 
-    let mut metadata = Tag::read_from_path(merged_file.path())?;
-    add_chapters(&mut metadata, chapters)?;
-    if let Some(ref path) = args.cover {
-        add_cover(&mut metadata, path)?;
+    let mut metadata = Tag::read_from_path(merged_file.path())
+        .context("failed to read ID3 tag from merged file")?;
+
+    for chapter in chapters {
+        metadata.add_frame(chapter);
     }
 
-    metadata.write_to_path(merged_file.path(), Version::Id3v24)?;
-    fs::copy(merged_file.path(), args.output)?;
+    add_cover(&args, &mut metadata).context("failed to add cover file")?;
+
+    metadata
+        .write_to_path(merged_file.path(), Version::Id3v24)
+        .context("failed to write ID3 tag to merged file")?;
+
+    fs::copy(merged_file.path(), &args.output).with_context(|| {
+        format!(
+            "failed to copy merged file to output path '{}'",
+            args.output
+        )
+    })?;
 
     Ok(())
 }
