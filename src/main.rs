@@ -85,8 +85,13 @@ fn create_mergelist(args: &Args) -> io::Result<()> {
         .files
         .iter()
         .map(|path| path.replace('\'', "'\\''"))
-        // TODO: Only add the ./ if the path is relative (check with is_relative())
-        .map(|path| format!("file './{path}'"))
+        .map(|path| {
+            if PathBuf::from(&path).is_relative() {
+                format!("file './{path}'")
+            } else {
+                format!("file '{path}'")
+            }
+        })
         .collect();
 
     println!("{}", lines.join("\n"));
