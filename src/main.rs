@@ -161,6 +161,7 @@ fn add_cover(metadata: &mut Tag, path: &PathBuf) -> anyhow::Result<()> {
 // - Write chapter info + optional cover image to merged MP3
 fn main() -> anyhow::Result<()> {
     let args: Args = dbg!(Args::parse());
+    anyhow::ensure!(!args.files.is_empty(), "no input files specified");
 
     let chapters = get_chapters(&args)?;
     create_mergelist(&args)?;
