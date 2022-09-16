@@ -26,14 +26,11 @@ struct Args {
 }
 
 fn get_chapters(args: &Args) -> anyhow::Result<Vec<Chapter>> {
-    let mut chapters = vec![];
-
+    let mut chapters = Vec::with_capacity(args.files.len());
     let mut current_time: u32 = 0;
     let mut current_offset: u32 = 0;
 
     for (i, path) in args.files.iter().enumerate() {
-        let element_id = format!("chapter_{i}");
-
         let duration_secs: f64 = duct::cmd!(
             "ffprobe",
             "-i",
@@ -53,11 +50,11 @@ fn get_chapters(args: &Args) -> anyhow::Result<Vec<Chapter>> {
         let duration_ms = (duration_secs * 1000.0).round() as u32;
 
         let file_size = fs::metadata(path)
-            .with_context(|| format!("failed to get size of input file '{path}'"))?
+            .with_context(|| format!("failed to get info for input file '{path}'"))?
             .len() as u32;
 
         let mut chapter = Chapter {
-            element_id,
+            element_id: format!("chapter_{i}"),
             start_time: current_time,
             end_time: current_time + duration_ms,
             start_offset: current_offset,
@@ -68,9 +65,7 @@ fn get_chapters(args: &Args) -> anyhow::Result<Vec<Chapter>> {
         chapter.set_title(
             PathBuf::from(path)
                 .file_stem()
-                .with_context(|| {
-                    format!("failed to determine chapter title for input file '{path}'")
-                })?
+                .with_context(|| format!("failed to get stem for input file '{path}'"))?
                 .to_string_lossy(),
         );
 
