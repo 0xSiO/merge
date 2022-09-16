@@ -40,7 +40,7 @@ fn get_chapters(args: &Args) -> anyhow::Result<Vec<Chapter>> {
 
     for (i, path) in args.files.iter().enumerate() {
         progress_bar.inc(1);
-        progress_bar.set_message(format!("generating chapter info for '{path}'..."));
+        progress_bar.set_message(format!("📖 generating chapter info for '{path}'..."));
 
         let duration_secs: f64 = duct::cmd!(
             "ffprobe",
@@ -86,7 +86,7 @@ fn get_chapters(args: &Args) -> anyhow::Result<Vec<Chapter>> {
         chapters.push(chapter);
     }
 
-    progress_bar.set_message("chapter info generated!");
+    progress_bar.set_message("📕 chapter info generated!");
     progress_bar.finish();
 
     Ok(chapters)
@@ -115,7 +115,7 @@ fn merge_files() -> io::Result<NamedTempFile> {
         .suffix(".mp3")
         .tempfile()?;
 
-    let progress_bar = ProgressBar::new_spinner().with_message("merging input files...");
+    let progress_bar = ProgressBar::new_spinner().with_message("🔨 merging input files...");
     progress_bar.enable_steady_tick(Duration::from_millis(100));
 
     let _output = duct::cmd!(
@@ -136,7 +136,7 @@ fn merge_files() -> io::Result<NamedTempFile> {
     )
     .run()?;
 
-    progress_bar.finish_with_message("merged!");
+    progress_bar.finish_with_message("💽 merged!");
 
     fs::remove_file(MERGELIST_PATH)?;
 
