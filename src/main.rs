@@ -2,7 +2,10 @@ use std::{fs, io, path::PathBuf};
 
 use anyhow::Context;
 use clap::Parser;
-use id3::{frame::Chapter, Tag, TagLike, Version};
+use id3::{
+    frame::{Chapter, Picture, PictureType},
+    Tag, TagLike, Version,
+};
 use tempfile::NamedTempFile;
 
 const MERGELIST_PATH: &str = "mergelist.txt";
@@ -82,6 +85,7 @@ fn create_mergelist(args: &Args) -> io::Result<()> {
         .files
         .iter()
         .map(|path| path.replace('\'', "'\\''"))
+        // TODO: Only add the ./ if the path is relative (check with is_relative())
         .map(|path| format!("file './{path}'"))
         .collect();
 
@@ -117,20 +121,52 @@ fn merge_files() -> io::Result<NamedTempFile> {
     Ok(merged_file)
 }
 
-// Basic steps:
-// - Merge chosen files into a single MP3
-// - Determine length of each file and create chapter info
-// - Write chapter info + optional cover image to merged MP3
-fn main() -> anyhow::Result<()> {
-    let args: Args = dbg!(Args::parse());
-    let chapters = get_chapters(&args)?;
-    create_mergelist(&args)?;
-    let merged_file = merge_files()?;
-    let mut metadata = Tag::read_from_path(merged_file.path())?;
+fn add_chapters(metadata: &mut Tag, chapters: Vec<Chapter>) -> anyhow::Result<()> {
     for chapter in chapters {
         metadata.add_frame(chapter);
     }
-    println!("{:?}", metadata);
+
+    Ok(())
+}
+
+fn add_cover(metadata: &mut Tag, path: &PathBuf) -> anyhow::Result<()> {
+    let mime_type = mime_guess::from_path(path).first().with_context(|| {
+        format!(
+            "unable to determine a mime type for cover file '{}'",
+            path.to_string_lossy()
+        )
+    })?;
+
+    let image_data = fs::read(path)
+        .with_context(|| format!("unable to read cover file '{}'", path.to_string_lossy()))?;
+
+    metadata.add_frame(Picture {
+        mime_type: mime_type.to_string(),
+        picture_type: PictureType::CoverFront,
+        description: String::new(),
+        data: image_data,
+    });
+
+    Ok(())
+}
+
+// Basic steps:
+// - Determine length of each file and create chapter info
+// - Merge chosen files into a single MP3
+// - Write chapter info + optional cover image to merged MP3
+fn main() -> anyhow::Result<()> {
+    let args: Args = dbg!(Args::parse());
+
+    let chapters = get_chapters(&args)?;
+    create_mergelist(&args)?;
+    let merged_file = merge_files()?;
+
+    let mut metadata = Tag::read_from_path(merged_file.path())?;
+    add_chapters(&mut metadata, chapters)?;
+    if let Some(ref path) = args.cover {
+        add_cover(&mut metadata, path)?;
+    }
+
     metadata.write_to_path(merged_file.path(), Version::Id3v24)?;
     fs::copy(merged_file.path(), args.output)?;
 
