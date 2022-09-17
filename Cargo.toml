@@ -2,7 +2,7 @@
 name = "merge"
 version = "0.1.0"
 authors = ["Luc Street (@0xSiO)"]
-description = "Merge audio files into a single MP3 file, with chapters and optional cover art."
+description = "Merge audio files into a single MP3 file, with chapters and optional metadata."
 edition = "2021"
 license = "MIT"
 publish = false

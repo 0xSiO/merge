@@ -1,6 +1,6 @@
 # merge
 
-Merge audio files into a single MP3 file, with chapters and optional cover art.
+Merge audio files into a single MP3 file, with chapters and optional metadata.
 
 ## Usage
 
@@ -17,10 +17,17 @@ ARGS:
     <FILES>...    Input file paths
 
 OPTIONS:
-    -c, --cover <COVER>    Path to cover art
-    -h, --help             Print help information
-    -t, --title <TITLE>    Set title of merged MP3 file
-    -V, --version          Print version information
+        --album <ALBUM>                    Album name
+        --album-artist <ALBUM_ARTIST>      Album artist
+        --artists <ARTISTS>                Semicolon-separated list of artists
+        --comments <COMMENTS>              Comments to include
+        --cover <COVER>                    Path to cover art image
+        --date-released <DATE_RELEASED>    Date released
+        --genres <GENRES>                  Semicolon-separated list of genres
+    -h, --help                             Print help information
+        --subtitle <SUBTITLE>              Set subtitle of merged MP3 file
+        --title <TITLE>                    Set title of merged MP3 file
+    -V, --version                          Print version information
 ```
 
 ## Contributing
