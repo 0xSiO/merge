@@ -1,10 +1,11 @@
 use std::{fs, io, path::PathBuf, time::Duration};
 
 use anyhow::Context;
+use chrono::{Datelike, NaiveDate};
 use clap::Parser;
 use id3::{
     frame::{Chapter, Comment, Picture, PictureType},
-    Tag, TagLike, Version,
+    Tag, TagLike, Timestamp, Version,
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
@@ -166,9 +167,9 @@ fn merge_files() -> io::Result<NamedTempFile> {
 
 fn populate_metadata(
     args: &Args,
-    mut metadata: Tag,
+    metadata: &mut Tag,
     chapters: Vec<Chapter>,
-) -> anyhow::Result<Tag> {
+) -> anyhow::Result<()> {
     if let Some(title) = &args.title {
         metadata.set_title(title);
     }
@@ -206,7 +207,18 @@ fn populate_metadata(
     }
 
     if let Some(date_released) = &args.date_released {
-        todo!()
+        let parsed_date = NaiveDate::parse_from_str(date_released, "%Y-%m-%d")
+            .with_context(|| format!("failed to parse release date timestamp '{date_released}'"))?;
+
+        metadata.set_year(parsed_date.year());
+        metadata.set_date_released(Timestamp {
+            year: parsed_date.year(),
+            month: Some(parsed_date.month() as u8),
+            day: Some(parsed_date.day() as u8),
+            hour: None,
+            minute: None,
+            second: None,
+        });
     }
 
     if let Some(genres) = &args.genres {
@@ -225,12 +237,11 @@ fn populate_metadata(
         metadata.add_frame(chapter);
     }
 
-    Ok(metadata)
+    Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
     let mut args: Args = dbg!(Args::parse());
-    return Ok(());
     anyhow::ensure!(!args.files.is_empty(), "no input files specified");
 
     let chapters = get_chapters(&args).context("failed to generate chapter metadata")?;
@@ -240,8 +251,7 @@ fn main() -> anyhow::Result<()> {
     let mut metadata = Tag::read_from_path(merged_file.path())
         .context("failed to read ID3 tag from merged file")?;
 
-    let metadata =
-        populate_metadata(&args, metadata, chapters).context("failed to set ID3 metadata")?;
+    populate_metadata(&args, &mut metadata, chapters).context("failed to set ID3 metadata")?;
 
     metadata
         .write_to_path(merged_file.path(), Version::Id3v24)
