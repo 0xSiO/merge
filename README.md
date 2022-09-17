@@ -4,7 +4,8 @@ Merge audio files into a single MP3 file, with chapters and optional cover art.
 
 ## Usage
 
-Make sure `ffmpeg` and `ffprobe` are installed and available in your PATH.
+Make sure [`ffmpeg`](https://ffmpeg.org/ffmpeg.html) and
+[`ffprobe`](https://ffmpeg.org/ffprobe.html) are installed and available in your PATH.
 I've tested this with `ffmpeg`/`ffprobe` v5.0.1, but other versions might work too.
 
 ```
