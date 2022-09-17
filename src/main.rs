@@ -3,7 +3,7 @@ use std::{fs, io, path::PathBuf, time::Duration};
 use anyhow::Context;
 use clap::Parser;
 use id3::{
-    frame::{Chapter, Picture, PictureType},
+    frame::{Chapter, Comment, Picture, PictureType},
     Tag, TagLike, Version,
 };
 use indicatif::{ProgressBar, ProgressStyle};
@@ -18,11 +18,32 @@ const MERGELIST_PATH: &str = "mergelist.txt";
 #[clap(author, version, about)]
 struct Args {
     /// Set title of merged MP3 file
-    #[clap(short, long)]
+    #[clap(long)]
     title: Option<String>,
-    /// Path to cover art
-    #[clap(short, long)]
+    /// Set subtitle of merged MP3 file
+    #[clap(long)]
+    subtitle: Option<String>,
+    /// Semicolon-separated list of artists
+    #[clap(long)]
+    artists: Option<String>,
+    /// Path to cover art image
+    #[clap(long)]
     cover: Option<String>,
+    /// Album name
+    #[clap(long)]
+    album: Option<String>,
+    /// Album artist
+    #[clap(long)]
+    album_artist: Option<String>,
+    /// Date released
+    #[clap(long)]
+    date_released: Option<String>,
+    /// Semicolon-separated list of genres
+    #[clap(long)]
+    genres: Option<String>,
+    /// Comments to include
+    #[clap(long)]
+    comments: Option<String>,
     /// Output file path
     output: PathBuf,
     /// Input file paths
@@ -143,7 +164,23 @@ fn merge_files() -> io::Result<NamedTempFile> {
     Ok(merged_file)
 }
 
-fn add_cover(args: &Args, metadata: &mut Tag) -> anyhow::Result<()> {
+fn populate_metadata(
+    args: &Args,
+    mut metadata: Tag,
+    chapters: Vec<Chapter>,
+) -> anyhow::Result<Tag> {
+    if let Some(title) = &args.title {
+        metadata.set_title(title);
+    }
+
+    if let Some(subtitle) = &args.subtitle {
+        metadata.set_text("TIT3", subtitle);
+    }
+
+    if let Some(artists) = &args.artists {
+        metadata.set_text_values("TPE1", artists.split(';'))
+    }
+
     if let Some(path) = &args.cover {
         let mime_type = mime_guess::from_path(path).first().with_context(|| {
             format!("failed to determine a mime type for cover file '{}'", path)
@@ -160,11 +197,40 @@ fn add_cover(args: &Args, metadata: &mut Tag) -> anyhow::Result<()> {
         });
     }
 
-    Ok(())
+    if let Some(album) = &args.album {
+        metadata.set_album(album);
+    }
+
+    if let Some(album_artist) = &args.album_artist {
+        metadata.set_album_artist(album_artist);
+    }
+
+    if let Some(date_released) = &args.date_released {
+        todo!()
+    }
+
+    if let Some(genres) = &args.genres {
+        metadata.set_text_values("TCON", genres.split(';'));
+    }
+
+    if let Some(comments) = &args.comments {
+        metadata.add_frame(Comment {
+            lang: String::from("eng"),
+            description: String::new(),
+            text: comments.clone(),
+        });
+    }
+
+    for chapter in chapters {
+        metadata.add_frame(chapter);
+    }
+
+    Ok(metadata)
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut args: Args = Args::parse();
+    let mut args: Args = dbg!(Args::parse());
+    return Ok(());
     anyhow::ensure!(!args.files.is_empty(), "no input files specified");
 
     let chapters = get_chapters(&args).context("failed to generate chapter metadata")?;
@@ -174,19 +240,12 @@ fn main() -> anyhow::Result<()> {
     let mut metadata = Tag::read_from_path(merged_file.path())
         .context("failed to read ID3 tag from merged file")?;
 
-    if let Some(title) = &args.title {
-        metadata.set_title(title);
-    }
-
-    for chapter in chapters {
-        metadata.add_frame(chapter);
-    }
-
-    add_cover(&args, &mut metadata).context("failed to add cover file")?;
+    let metadata =
+        populate_metadata(&args, metadata, chapters).context("failed to set ID3 metadata")?;
 
     metadata
         .write_to_path(merged_file.path(), Version::Id3v24)
-        .context("failed to write ID3 tag to merged file")?;
+        .context("failed to write ID3 metadata to merged file")?;
 
     args.output.set_extension("mp3");
     fs::copy(merged_file.path(), &args.output).with_context(|| {
