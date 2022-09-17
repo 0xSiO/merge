@@ -163,10 +163,6 @@ fn add_cover(args: &Args, metadata: &mut Tag) -> anyhow::Result<()> {
     Ok(())
 }
 
-// Basic steps:
-// - Determine length of each file and create chapter info
-// - Merge chosen files into a single MP3
-// - Write chapter info + optional cover image to merged MP3
 fn main() -> anyhow::Result<()> {
     let mut args: Args = Args::parse();
     anyhow::ensure!(!args.files.is_empty(), "no input files specified");
