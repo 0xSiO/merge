@@ -210,7 +210,6 @@ fn populate_metadata(
         let parsed_date = NaiveDate::parse_from_str(date_released, "%Y-%m-%d")
             .with_context(|| format!("failed to parse release date timestamp '{date_released}'"))?;
 
-        metadata.set_year(parsed_date.year());
         metadata.set_date_released(Timestamp {
             year: parsed_date.year(),
             month: Some(parsed_date.month() as u8),
@@ -241,7 +240,7 @@ fn populate_metadata(
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut args: Args = dbg!(Args::parse());
+    let mut args: Args = Args::parse();
     anyhow::ensure!(!args.files.is_empty(), "no input files specified");
 
     let chapters = get_chapters(&args).context("failed to generate chapter metadata")?;
